@@ -2,21 +2,30 @@ import streamlit as st
 import sqlite3
 import pandas as pd
 
-st.title("Tampa Job Explorer (2024–25)")
+st.title("Tampa Job Explorer (2024 Combined Data)")
 
-# Load data from SQLite
+# Load combined data
 conn = sqlite3.connect("db/tampa_jobs.db")
 df = pd.read_sql_query("SELECT * FROM jobs", conn)
 
 # Sidebar filters
-min_wage = st.sidebar.slider("Min Hourly Wage", 0, 100, 25)
-min_openings = st.sidebar.slider("Min Annual Openings", 0, 300, 50)
-min_growth = st.sidebar.slider("Min % Growth", 0.0, 5.0, 1.0)
+st.sidebar.header("Filter Options")
+min_wage = st.sidebar.slider("Minimum Hourly Wage", 0, 100, 25)
+min_openings = st.sidebar.slider("Minimum Annual Openings", 0, 300, 0)
+min_growth = st.sidebar.slider("Minimum % Growth", 0.0, 10.0, 0.0)
+source_filter = st.sidebar.multiselect("Source", options=df["Source"].unique(), default=df["Source"].unique())
 
-filtered = df[
-    (df["2022 Hourly Wage Mean"] >= min_wage) &
-    (df["Regional Annual Openings"] >= min_openings) &
-    (df["Regional % Growth"] >= min_growth)
-]
+# Apply base filters
+filtered = df[df["Regional Mean Wage"] >= min_wage]
+filtered = filtered[filtered["Source"].isin(source_filter)]
 
-st.dataframe(filtered.sort_values("2022 Hourly Wage Mean", ascending=False))
+# Handle optional filters
+if "Regional Openings" in df.columns:
+    filtered = filtered[filtered["Regional Openings"].fillna(0) >= min_openings]
+if "Regional % Growth" in df.columns:
+    filtered = filtered[filtered["Regional % Growth"].fillna(0) >= min_growth]
+
+# Display sorted table
+st.dataframe(
+    filtered.sort_values("Regional Mean Wage", ascending=False).reset_index(drop=True)
+)
